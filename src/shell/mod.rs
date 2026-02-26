@@ -276,6 +276,7 @@ pub struct Shell {
     pub active_hint: bool,
     overview_mode: OverviewMode,
     swap_indicator: Option<SwapIndicator>,
+    window_switcher_binding: Option<shortcuts::Binding>,
     resize_mode: ResizeMode,
     resize_state: Option<(
         KeyboardFocusTarget,
@@ -1592,6 +1593,7 @@ impl Shell {
             active_hint: config.cosmic_conf.active_hint,
             overview_mode: OverviewMode::None,
             swap_indicator: None,
+            window_switcher_binding: None,
             resize_mode: ResizeMode::None,
             resize_state: None,
             resize_indicator: None,
@@ -2180,6 +2182,14 @@ impl Shell {
             clients.extend(workspace.update_animations());
         }
         clients
+    }
+
+    pub fn window_switcher_binding(&self) -> Option<&shortcuts::Binding> {
+        self.window_switcher_binding.as_ref()
+    }
+
+    pub fn set_window_switcher_binding(&mut self, binding: Option<shortcuts::Binding>) {
+        self.window_switcher_binding = binding;
     }
 
     pub fn set_overview_mode(

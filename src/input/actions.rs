@@ -73,6 +73,7 @@ impl State {
                         &self.common.config,
                         self.common.event_loop_handle.clone(),
                     );
+                    shell.set_window_switcher_binding(None);
                 }
                 let pointer = seat.get_pointer().unwrap();
                 let keyboard = seat.get_keyboard().unwrap();
@@ -1002,6 +1003,18 @@ impl State {
 
             // Gets the configured command for a given system action.
             Action::System(system) => {
+                // Track the triggering binding for the window switcher so
+                // modifier-release can dismiss it even for custom shortcuts.
+                if matches!(
+                    system,
+                    shortcuts::action::System::WindowSwitcher
+                        | shortcuts::action::System::WindowSwitcherPrevious
+                ) {
+                    self.common
+                        .shell
+                        .write()
+                        .set_window_switcher_binding(Some(pattern.clone()));
+                }
                 if let Some(command) = self.common.config.system_actions.get(&system) {
                     self.spawn_command(command.clone());
                 }

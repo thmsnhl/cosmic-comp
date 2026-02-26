@@ -1654,6 +1654,29 @@ impl State {
             }
         }
 
+        // Dismiss window switcher when its trigger modifier is released and the
+        // window-switcher app does not natively watch for that modifier (i.e.,
+        // the binding uses neither Alt nor Super, which cosmic-launcher already
+        // intercepts on its own).
+        let dismiss_window_switcher = if let Some(binding) =
+            shell.window_switcher_binding().cloned()
+        {
+            let mods = &binding.modifiers;
+            // cosmic-launcher already handles Alt and Super release internally;
+            // only intervene for other modifiers (Ctrl, Shift, …).
+            let launcher_handles_natively = mods.alt || mods.logo;
+            !launcher_handles_natively
+                && event.state() == KeyState::Released
+                && ((mods.ctrl && !modifiers.ctrl)
+                    || (mods.shift && !modifiers.shift)
+                    || (binding.key.is_some() && key_matches(binding.key.unwrap())))
+        } else {
+            false
+        };
+        if dismiss_window_switcher {
+            shell.set_window_switcher_binding(None);
+        }
+
         // Leave or update resize mode, if modifiers changed or initial key was released
         if let Some(action_pattern) = shell.resize_mode().0.active_binding() {
             if action_pattern.key.is_some()
@@ -1758,6 +1781,12 @@ impl State {
         }
 
         std::mem::drop(shell);
+
+        // Dismiss window switcher for custom modifier bindings (non-Alt/Super)
+        if dismiss_window_switcher {
+            Shell::set_focus(self, None, seat, Some(serial), false);
+            return FilterResult::Intercept(None);
+        }
 
         // cancel grabs
         if is_grabbed
