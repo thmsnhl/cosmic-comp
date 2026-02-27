@@ -1658,6 +1658,12 @@ impl State {
         // window-switcher app does not natively watch for that modifier (i.e.,
         // the binding uses neither Alt nor Super, which cosmic-launcher already
         // intercepts on its own).
+        //
+        // Only check modifier release — not key release. For Alt+Tab the user
+        // holds Alt and presses Tab to cycle; releasing Tab should NOT close
+        // the switcher. The same applies to custom bindings like Shift+F: the
+        // user holds Shift and can press F multiple times to cycle through
+        // windows; only releasing Shift should confirm and close.
         let dismiss_window_switcher = if let Some(binding) =
             shell.window_switcher_binding().cloned()
         {
@@ -1667,9 +1673,7 @@ impl State {
             let launcher_handles_natively = mods.alt || mods.logo;
             !launcher_handles_natively
                 && event.state() == KeyState::Released
-                && ((mods.ctrl && !modifiers.ctrl)
-                    || (mods.shift && !modifiers.shift)
-                    || (binding.key.is_some() && key_matches(binding.key.unwrap())))
+                && ((mods.ctrl && !modifiers.ctrl) || (mods.shift && !modifiers.shift))
         } else {
             false
         };
