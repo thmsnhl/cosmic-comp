@@ -2194,6 +2194,9 @@ impl Shell {
         if binding.is_none() {
             self.window_switcher_index = None;
         }
+        // When setting a new (Some) binding the index is intentionally kept:
+        // the caller already called advance_window_switcher() just before this,
+        // so resetting here would undo that advance.
         self.window_switcher_binding = binding;
     }
 

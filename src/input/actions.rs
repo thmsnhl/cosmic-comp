@@ -1015,27 +1015,21 @@ impl State {
                     // not know when to confirm the selection, so cosmic-comp
                     // tracks the cycle index itself and focuses the window
                     // directly on modifier release.
+                    // Native Alt/Super bindings are handled entirely by
+                    // cosmic-launcher, so we do not track state for them.
                     if !mods.alt && !mods.logo {
                         let forward =
                             matches!(system, shortcuts::action::System::WindowSwitcher);
                         let output = seat.active_output();
-                        let len = self
-                            .common
-                            .shell
-                            .read()
+                        let mut shell = self.common.shell.write();
+                        let len = shell
                             .active_space(&output)
                             .map(|ws| ws.focus_stack.get(seat).iter().count())
                             .unwrap_or(1)
                             .max(1);
-                        self.common
-                            .shell
-                            .write()
-                            .advance_window_switcher(forward, len);
+                        shell.advance_window_switcher(forward, len);
+                        shell.set_window_switcher_binding(Some(pattern.clone()));
                     }
-                    self.common
-                        .shell
-                        .write()
-                        .set_window_switcher_binding(Some(pattern.clone()));
                 }
                 if let Some(command) = self.common.config.system_actions.get(&system) {
                     self.spawn_command(command.clone());

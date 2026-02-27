@@ -1808,14 +1808,12 @@ impl State {
         // Dismiss window switcher for custom modifier bindings (non-Alt/Super).
         // Focus the window that was selected (tracked by the cycle index) so
         // that cosmic-launcher does not need to handle the custom modifier.
+        // If the tracked window closed while the switcher was open, skip the
+        // focus call rather than clearing all focus via set_focus(None).
         if dismiss_window_switcher {
-            Shell::set_focus(
-                self,
-                pending_switcher_focus.as_ref(),
-                seat,
-                Some(serial),
-                false,
-            );
+            if let Some(ref focus) = pending_switcher_focus {
+                Shell::set_focus(self, Some(focus), seat, Some(serial), false);
+            }
             return FilterResult::Intercept(None);
         }
 
