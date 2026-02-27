@@ -1010,6 +1010,28 @@ impl State {
                     shortcuts::action::System::WindowSwitcher
                         | shortcuts::action::System::WindowSwitcherPrevious
                 ) {
+                    let mods = &pattern.modifiers;
+                    // For custom modifiers (not Alt/Super), cosmic-launcher does
+                    // not know when to confirm the selection, so cosmic-comp
+                    // tracks the cycle index itself and focuses the window
+                    // directly on modifier release.
+                    if !mods.alt && !mods.logo {
+                        let forward =
+                            matches!(system, shortcuts::action::System::WindowSwitcher);
+                        let output = seat.active_output();
+                        let len = self
+                            .common
+                            .shell
+                            .read()
+                            .active_space(&output)
+                            .map(|ws| ws.focus_stack.get(seat).iter().count())
+                            .unwrap_or(1)
+                            .max(1);
+                        self.common
+                            .shell
+                            .write()
+                            .advance_window_switcher(forward, len);
+                    }
                     self.common
                         .shell
                         .write()

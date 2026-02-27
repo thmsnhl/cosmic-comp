@@ -277,6 +277,7 @@ pub struct Shell {
     overview_mode: OverviewMode,
     swap_indicator: Option<SwapIndicator>,
     window_switcher_binding: Option<shortcuts::Binding>,
+    window_switcher_index: Option<usize>,
     resize_mode: ResizeMode,
     resize_state: Option<(
         KeyboardFocusTarget,
@@ -1594,6 +1595,7 @@ impl Shell {
             overview_mode: OverviewMode::None,
             swap_indicator: None,
             window_switcher_binding: None,
+            window_switcher_index: None,
             resize_mode: ResizeMode::None,
             resize_state: None,
             resize_indicator: None,
@@ -2189,7 +2191,30 @@ impl Shell {
     }
 
     pub fn set_window_switcher_binding(&mut self, binding: Option<shortcuts::Binding>) {
+        if binding.is_none() {
+            self.window_switcher_index = None;
+        }
         self.window_switcher_binding = binding;
+    }
+
+    pub fn window_switcher_index(&self) -> Option<usize> {
+        self.window_switcher_index
+    }
+
+    /// Advance the window-switcher cycle index.
+    ///
+    /// `len` is the number of windows available.  The index wraps around.
+    /// The very first call (when `window_switcher_index` is `None`) starts at
+    /// position 1 for forward (the window after the current one) or `len-1`
+    /// for backward — matching standard Alt+Tab behaviour.
+    pub fn advance_window_switcher(&mut self, forward: bool, len: usize) {
+        let len = len.max(1);
+        self.window_switcher_index = Some(match self.window_switcher_index {
+            None if forward => 1 % len,
+            None => len.saturating_sub(1),
+            Some(i) if forward => (i + 1) % len,
+            Some(i) => i.checked_sub(1).unwrap_or(len - 1),
+        });
     }
 
     pub fn set_overview_mode(

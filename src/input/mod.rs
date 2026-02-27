@@ -1664,19 +1664,38 @@ impl State {
         // the switcher. The same applies to custom bindings like Shift+F: the
         // user holds Shift and can press F multiple times to cycle through
         // windows; only releasing Shift should confirm and close.
-        let dismiss_window_switcher = if let Some(binding) =
-            shell.window_switcher_binding().cloned()
-        {
-            let mods = &binding.modifiers;
-            // cosmic-launcher already handles Alt and Super release internally;
-            // only intervene for other modifiers (Ctrl, Shift, …).
-            let launcher_handles_natively = mods.alt || mods.logo;
-            !launcher_handles_natively
-                && event.state() == KeyState::Released
-                && ((mods.ctrl && !modifiers.ctrl) || (mods.shift && !modifiers.shift))
-        } else {
-            false
-        };
+        //
+        // For custom-modifier bindings, cosmic-launcher does not know which
+        // modifier to watch, so it cannot activate the selected window itself.
+        // Instead, cosmic-comp tracks a cycle index and focuses the window
+        // directly when the modifier is released.  Capture the pending target
+        // now (before the binding/index is cleared below).
+        let (dismiss_window_switcher, pending_switcher_focus) =
+            if let Some(binding) = shell.window_switcher_binding().cloned() {
+                let mods = &binding.modifiers;
+                // cosmic-launcher already handles Alt and Super release internally;
+                // only intervene for other modifiers (Ctrl, Shift, …).
+                let launcher_handles_natively = mods.alt || mods.logo;
+                let dismiss = !launcher_handles_natively
+                    && event.state() == KeyState::Released
+                    && ((mods.ctrl && !modifiers.ctrl) || (mods.shift && !modifiers.shift));
+
+                let pending = if dismiss {
+                    shell.window_switcher_index().and_then(|idx| {
+                        let output = seat.active_output();
+                        shell
+                            .active_space(&output)
+                            .and_then(|ws| ws.focus_stack.get(seat).iter().nth(idx).cloned())
+                            .map(KeyboardFocusTarget::from)
+                    })
+                } else {
+                    None
+                };
+
+                (dismiss, pending)
+            } else {
+                (false, None)
+            };
         if dismiss_window_switcher {
             shell.set_window_switcher_binding(None);
         }
@@ -1786,9 +1805,17 @@ impl State {
 
         std::mem::drop(shell);
 
-        // Dismiss window switcher for custom modifier bindings (non-Alt/Super)
+        // Dismiss window switcher for custom modifier bindings (non-Alt/Super).
+        // Focus the window that was selected (tracked by the cycle index) so
+        // that cosmic-launcher does not need to handle the custom modifier.
         if dismiss_window_switcher {
-            Shell::set_focus(self, None, seat, Some(serial), false);
+            Shell::set_focus(
+                self,
+                pending_switcher_focus.as_ref(),
+                seat,
+                Some(serial),
+                false,
+            );
             return FilterResult::Intercept(None);
         }
 
